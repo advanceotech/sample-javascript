@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style type="text/css">
+		body{ 
+			background: #000; 
+			color: grey; 
+			font-family: monospace; 
+			font-size: 10px;
+		}
+		canvas{ 
+			display: block;
+			border: 1px solid grey;
+			border-bottom: 0;
+		}
+		input{ 
+			width: 255px;
+			padding: 0; margin: 0;
+			border-radius: 0; 
+			display: block; 
+			border: 1px solid grey; 
+			background: #222; 
+			color: grey;
+		}
+	</style>
+</head>
+<body>
+<input id="hex" value="#FFFFFF" type="text" />
+<input id="rgb" value="1" type="range" />
+<script type="text/javascript">
+/**
+ * Generates an array to use to draw a color spectrum
+ * param Scale Number Decimal used to scale the spectrum width
+ * return Array
+ */
+function Spectrum(Scale){
+	var _spectrum = [];
+	var red 		 = '#ff0000';
+	var yellow	 = '#ffff00';
+	var green    = '#00ff00';
+	var cyan		 = '#00ffff';
+	var blue		 = '#0000ff';
+	var magenta	 = '#ff00ff';
+	var color_spectrum = [red,yellow,green,cyan,blue,magenta,red];
+	// generated spectrum of [red,orange,yellow,yellowgreen,green,teal,cyan,lightblue,blue,purple,magenta,red]
+	var genSpectrum = function(c1,c2,base){
+		var _spec = [];
+		
+		var convertHexToRgb = function(clr){
+			clr = clr.replace('#','');
+			clr = [
+				hexToInt(clr.substr(0,2)),
+				hexToInt(clr.substr(2,2)),
+				hexToInt(clr.substr(4,2))
+			];
+			return clr
+		};
+		
+		c1 = convertHexToRgb(c1);
+		c2 = convertHexToRgb(c2);
+		
+		var i;
+		for(i=0; i<255; i++){
+			_spec.push([
+				c1[0],
+				c1[1],
+				c1[2]
+			]);
+		}
+		var value = _spec[0][base];
+		if(value == 255) direction = -1;
+		else direction = 1;
+		for(i=0; i<_spec.length; i++){		
+			value += direction;
+			_spec[i][base] = value;
+		}
+		
+		// resolution
+		var cur_step = 0;
+		var step = Math.floor((255/Scale)/255);
+		var len = _spec.length;
+		var temp = [];
+		for(var i=0;i<len;i++){
+			cur_step++;
+			if(cur_step >= step){
+				cur_step = 0;
+				temp.push(_spec[i]);
+			}
+		}
+		_spec = temp;
+		
+		return _spec;
+	};
+	_spectrum.push(genSpectrum(red,yellow,1));
+	_spectrum.push(genSpectrum(yellow,green,0));
+	_spectrum.push(genSpectrum(green,cyan,2));
+	_spectrum.push(genSpectrum(cyan,blue,1));
+	_spectrum.push(genSpectrum(blue,magenta,0));
+	_spectrum.push(genSpectrum(magenta,red,2));
+	return _spectrum;
+}//Spectrum
+/**
+ * Returns a base16 hexidecimal string of the passed Integer
+ * param Int Integer
+ * return String
+ */
+function intToHex(Int,Format){
+	Int = Int.toString(16);
+	if(Int.length == 1) Int = '0'+Int;
+	if(Format){
+		while(Int.length<6) Int = '0'+Int;
+		Int = '#' + Int;
+	}
+	return Int;
+}//toHex
+/**
+ * Returns the converted value of a hexidecimal string as an Integer
+ * param Hex String
+ * return Int
+ */
+function hexToInt(Hex){
+	Hex = Hex.replace('#','');
+	while(Hex.charAt(0) == '0' && Hex.length>2) Hex = Hex.substr(1);
+	return Number.parseInt(Hex,16);
+}//hexToInt
+
+var drawSpectrum = function(){
+	var canvas = document.createElement('canvas');
+	canvas.style.display = 'none';
+	canvas.width 	= Math.floor(255/6)*6;
+	canvas.height = 20*6;
+	
+	var input_hex = document.getElementById('hex');
+	input_hex.style.width = canvas.width+'px';
+	
+	var range = document.getElementById('rgb');
+	range.style.width = canvas.width+'px';
+	
+	var c = canvas.getContext('2d');
+
+	var scale = (canvas.width/6)/255;
+	var spectrum = Spectrum(scale);
+	
+	var pixelWidth 	= 1;
+	var pixelHeight = 20;
+	
+	for(var j=0; j<spectrum.length; j++){
+		var spec = spectrum[j];
+		for(var i=0; i<spec.length; i++){
+			for(var x=0; x<pixelWidth;	x++){
+				var id = c.createImageData(1,1);
+				id.data[0] = spec[i][0];
+				id.data[1] = spec[i][1];
+				id.data[2] = spec[i][2];
+				id.data[3] = 255;
+				c.putImageData(id,x+1*i,j*pixelHeight);
+			}
+			var id = c.getImageData(0,j*pixelHeight,255,1);
+			for(var y=0; y<pixelHeight; y++){
+				c.putImageData(id,0,y+(j*pixelHeight));
+			}//xy
+		}
+	}
+	for(var i=0; i<spectrum.length; i++){
+		var xpos 		= i*spectrum[0].length;
+		var ypos 		= i*pixelHeight;
+		var rwidth 	= spectrum[0].length;
+		var rheight = pixelHeight;
+		var id 			= c.getImageData(0,ypos,rwidth,rheight);
+		var posx 		= i*rwidth;
+		var posy 		= 0;
+		c.clearRect(0,ypos,rwidth,rheight);
+		c.putImageData(id,xpos,0);
+	}
+	
+	var _canvas = document.createElement('canvas');
+	_canvas.width = canvas.width
+	_canvas.height = pixelHeight;
+	document.body.insertBefore(_canvas,document.getElementById('hex'));
+	var _c = _canvas.getContext('2d');
+	_c.drawImage(canvas,0,0);
+	
+	range.setAttribute('data-mousedown','false');
+	range.onmousedown = function(e){
+		range.setAttribute('data-mousedown','true');
+	};
+	range.onmousemove = function(e){
+		if(range.getAttribute('data-mousedown') == 'false') return;
+		var pos = Math.floor(255*(range.value/100));
+		var id = _c.getImageData(pos,1,1,1);
+		var rgb = [
+			id.data[0],
+			id.data[1],
+			id.data[2]
+		];
+		var r = intToHex(rgb[0],false);
+		var g = intToHex(rgb[1],false);
+		var b = intToHex(rgb[2],false);
+		rgb = '#'+r+g+b;
+		if(range.value == 0 || range.value == 100){
+			rgb = '#ff0000';
+		}
+		hex.value = rgb;
+	};
+	document.body.onmouseup = function(e){
+		range.setAttribute('data-mousedown','false');
+	};
+	
+};
+drawSpectrum();
+</script>
+</body>
+</html>
