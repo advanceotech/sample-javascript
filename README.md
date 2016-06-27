@@ -1,6 +1,6 @@
 # Sample JavaScript
 
-## spectrum-to-hex
+## spectrum-to-hex/
 
 Hex color generator with slider. Use the slider to generate the associated hex value of the color.
 
